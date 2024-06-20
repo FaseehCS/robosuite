@@ -5,6 +5,8 @@ from robosuite.environments.manipulation.lift import Lift
 from robosuite.environments.manipulation.stack import Stack
 from robosuite.environments.manipulation.cleanup import Cleanup
 from robosuite.environments.manipulation.peg_in_hole import PegInHole
+from robosuite.environments.manipulation.small_obs_peg_in_hole import PegInHoleWSmallObs
+from robosuite.environments.manipulation.large_obs_peg_in_hole import PegInHoleWLargeObs
 from robosuite.environments.manipulation.nut_assembly import NutAssembly
 from robosuite.environments.manipulation.pick_place import PickPlace
 from robosuite.environments.manipulation.door import Door
