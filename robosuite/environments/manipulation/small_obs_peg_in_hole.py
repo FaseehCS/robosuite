@@ -27,7 +27,7 @@ DEFAULT_PEG_IN_HOLE_CONFIG = {
     'lift_pos_offset': 0.3,
 }
 
-class PegInHole(SingleArmEnv):
+class PegInHoleWSmallObs(SingleArmEnv):
     """
     This class corresponds to the stacking task for a single robot arm.
 
