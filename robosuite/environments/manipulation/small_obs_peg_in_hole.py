@@ -440,6 +440,14 @@ class PegInHoleWSmallObs(SingleArmEnv):
             di["peg_pos"] = peg_pos
             di["peg_quat"] = peg_quat
 
+            # position of small obstacle
+            obstacle_pos = np.array(self.sim.data.body_xpos[self.obstacle_body_id])
+            obstacle_quat = convert_quat(
+                np.array(self.sim.data.body_xquat[self.obstacle_body_id]), to="xyzw"
+            )
+            di["obstacle_pos"] = obstacle_pos
+            di["obstacle_quat"] = obstacle_quat
+
             # relative positions between gripper and cubes
             di[pr + "gripper_to_peg"] = self._gripper_to_target(
                 gripper=self.robots[0].gripper,
@@ -465,6 +473,8 @@ class PegInHoleWSmallObs(SingleArmEnv):
                     [di["angle"]],
                     [di["t"]],
                     [di["d"]],
+                    obstacle_pos,
+                    obstacle_quat,
                 ]
             )
 
