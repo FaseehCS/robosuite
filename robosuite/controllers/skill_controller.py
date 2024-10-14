@@ -9,6 +9,11 @@ from robosuite.controllers.skills import (
     PushSkill,
     GripperSkill,
 )
+import logging
+
+# Configure the logger
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 class SkillController:
 
@@ -43,7 +48,11 @@ class SkillController:
             skills=['atomic'],
         )
         self._config = copy.deepcopy(default_config)
-        self._config.update(config)
+        if config is not None:
+            self._config.update(config)
+            logger.info("SkillController config updated successfully.")
+        else:
+            logger.error("Received NoneType for config. Using default_config.")
 
         skill_names = self._config['skills']
         for skill_name in skill_names:
