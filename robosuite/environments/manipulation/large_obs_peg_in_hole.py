@@ -161,7 +161,7 @@ class PegInHoleWLargeObs(SingleArmEnv):
         horizon=1000,
         ignore_done=False,
         hard_reset=True,
-        camera_names="agentview",
+        camera_names=["frontview"],
         camera_heights=256,
         camera_widths=256,
         camera_depths=False,
@@ -324,7 +324,7 @@ class PegInHoleWLargeObs(SingleArmEnv):
         if self.task_config['large_hole']:
             xml_path="arenas/table_arena_block_large_hole.xml"
         else:
-            xml_path="arenas/table_arena_vertical_block.xml"
+            xml_path="arenas/table_arena_block.xml"
 
         # load model for table top workspace
         mujoco_arena = BlockArena(
@@ -338,8 +338,8 @@ class PegInHoleWLargeObs(SingleArmEnv):
         mujoco_arena.set_origin([0, 0, 0])
 
         self.peg = PegObject(name='peg')
-        self.large_obstacle = BoxObject(name="small_obstacle", size=[0.061, 0.041, 0.02], rgba=[0, 0, 1, 1])
-        objs = [self.peg, self.large_obstacle]
+        self.obstacle = BoxObject(name="obstacle", size=[0.04, 0.04, 0.06], rgba=[0, 0, 1, 1])
+        objs = [self.peg, self.obstacle]
         # Create placement initializer
         if self.placement_initializer is not None:
             self.placement_initializer.reset()
@@ -353,8 +353,10 @@ class PegInHoleWLargeObs(SingleArmEnv):
             self.placement_initializer = UniformRandomSampler(
                 name="ObjectSampler",
                 mujoco_objects=objs,
-                x_range=[-0.15, 0.15],
-                y_range=[-0.15, 0.15],
+                x_range=[-0.1, 0.1],
+                y_range=[0.0, 0.25],
+                # x_range=[0.05, 0.005],
+                # y_range=[0.25, 0.3],
                 rotation=rotation,
                 ensure_object_boundary_in_range=False,
                 ensure_valid_placement=True,
@@ -370,7 +372,7 @@ class PegInHoleWLargeObs(SingleArmEnv):
         )
 
         # Define custom orientation for the peg
-        self.peg_initial_quat = [0, -np.sin(np.pi/4), 0, np.cos(np.pi/4)]  # 90 degrees around Z-axis
+        # self.peg_initial_quat = [0, -np.sin(np.pi/4), 0, np.cos(np.pi/4)]  # 90 degrees around Z-axis
 
     def _get_reference(self):
         """
@@ -383,7 +385,7 @@ class PegInHoleWLargeObs(SingleArmEnv):
         # Additional object references from this env
         self.block_body_id = self.sim.model.body_name2id("block")
         self.peg_body_id = self.sim.model.body_name2id(self.peg.root_body)
-        self.large_obstacle_body_id = self.sim.model.body_name2id(self.large_obstacle.root_body)
+        self.obstacle_body_id = self.sim.model.body_name2id(self.obstacle.root_body)
 
     def _reset_internal(self):
         """
@@ -399,14 +401,21 @@ class PegInHoleWLargeObs(SingleArmEnv):
 
             # Loop through all objects and reset their positions
             for obj_pos, obj_quat, obj in object_placements.values():
-                if obj.name == 'peg':
-                    self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos),  np.array(self.peg_initial_quat)]))
-                else:
-                    self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos),  np.array(obj_quat)]))
+                self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos), np.array(obj_quat)]))
+                # if obj.name == 'peg':
+                #     self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos),  np.array(self.peg_initial_quat)]))
+                # else:
+                #     self.sim.data.set_joint_qpos(obj.joints[0], np.concatenate([np.array(obj_pos),  np.array(obj_quat)]))
         # Set custom position for the small obstacle to cover the hole
-        hole_pos = self.sim.data.body_xpos[self.block_body_id]
-        self.sim.data.set_joint_qpos(self.large_obstacle.joints[0], np.concatenate([hole_pos + np.array([0, 0, 0.2]), [1, 0, 0, 0]]))
-
+        # hole_pos = self.sim.data.body_xpos[self.block_body_id]
+        # self.sim.data.set_joint_qpos(self.obstacle.joints[0], np.concatenate([hole_pos + np.array([0, 0, 0.2]), [1, 0, 0, 0]]))
+       
+            # Manually place the small obstacle inside the hole of the block
+            hole_pos = self.sim.data.body_xpos[self.block_body_id]
+            hole_y_offset = 0.13 # Adjust this value to set how much the obstacle protrudes from the hole
+            hole_z_offset = 0.0 # Adjust this value to set how much the obstacle is high from the hole
+            obstacle_pos = hole_pos + np.array([0, hole_y_offset, hole_z_offset])
+            self.sim.data.set_joint_qpos(self.obstacle.joints[0], np.concatenate([obstacle_pos, [1, 0, 0, 0]]))
     def _get_observation(self):
         """
         Returns an OrderedDict containing observations [(name_string, np.array), ...].
@@ -440,6 +449,14 @@ class PegInHoleWLargeObs(SingleArmEnv):
             di["peg_pos"] = peg_pos
             di["peg_quat"] = peg_quat
 
+            # position of small obstacle
+            obstacle_pos = np.array(self.sim.data.body_xpos[self.obstacle_body_id])
+            obstacle_quat = convert_quat(
+                np.array(self.sim.data.body_xquat[self.obstacle_body_id]), to="xyzw"
+            )
+            di["obstacle_pos"] = obstacle_pos
+            di["obstacle_quat"] = obstacle_quat
+
             # relative positions between gripper and cubes
             di[pr + "gripper_to_peg"] = self._gripper_to_target(
                 gripper=self.robots[0].gripper,
@@ -465,9 +482,10 @@ class PegInHoleWLargeObs(SingleArmEnv):
                     [di["angle"]],
                     [di["t"]],
                     [di["d"]],
+                    obstacle_pos,
+                    obstacle_quat,
                 ]
             )
-
         return di
 
     def visualize(self, vis_settings):
@@ -494,7 +512,7 @@ class PegInHoleWLargeObs(SingleArmEnv):
             bool: True if peg is placed in hole correctly
         """
         t, d, cos = self._compute_orientation()
-
+        # print ("peg position: ",self.sim.data.body_xpos[self.peg_body_id])
         return d < 0.05 and -0.05 <= t <= 0.05 and cos > 0.95
 
     def _compute_orientation(self):
